@@ -4,6 +4,8 @@ Core data processing, K-Means clustering, and statistical profiling utilities
 for the Customer Segmentation project.
 """
 
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
 import io
 import re
 import pandas as pd
@@ -22,7 +24,12 @@ def load_dataset(source):
     
     try:
         if isinstance(source, (str, io.BytesIO, io.StringIO)) or hasattr(source, "read"):
-            df = pd.read_csv(source)
+            try:
+                df = pd.read_csv(source)
+            except UnicodeDecodeError:
+                if hasattr(source, "seek"):
+                    source.seek(0)
+                df = pd.read_csv(source, encoding="latin1")
         else:
             return None, "Unsupported file format or source type."
             
@@ -92,6 +99,8 @@ def prepare_feature_matrix(df, features):
             return None, None, f"Feature '{feat}' not found in dataset."
             
     X = df[features].copy()
+    for feat in features:
+        X[feat] = pd.to_numeric(X[feat], errors='coerce')
     
     # Check for NaN / infinite values
     valid_mask = ~X.isna().any(axis=1) & ~np.isinf(X).any(axis=1)
@@ -122,9 +131,12 @@ def calculate_elbow(X, max_k=10, random_state=0):
         labels = km.fit_predict(X)
         wcss.append(km.inertia_)
         
-        if k > 1 and n_samples > k:
-            score = silhouette_score(X, labels)
-            sil_scores.append(round(score, 4))
+        if k > 1 and n_samples > k and len(np.unique(labels)) > 1:
+            try:
+                score = silhouette_score(X, labels)
+                sil_scores.append(round(score, 4))
+            except Exception:
+                sil_scores.append(None)
         else:
             sil_scores.append(None)
             
@@ -152,8 +164,11 @@ def fit_kmeans_model(X, n_clusters=5, random_state=0):
     labels = model.fit_predict(X)
     
     sil = None
-    if n_clusters > 1 and len(X) > n_clusters:
-        sil = round(silhouette_score(X, labels), 4)
+    if n_clusters > 1 and len(X) > n_clusters and len(np.unique(labels)) > 1:
+        try:
+            sil = round(silhouette_score(X, labels), 4)
+        except Exception:
+            sil = None
         
     return model, labels, sil, round(model.inertia_, 2)
 
