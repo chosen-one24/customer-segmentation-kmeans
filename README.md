@@ -40,7 +40,7 @@ The tool allows:
 
 ## 🧪 Technologies Used
 
-| Tool / Library     | Purpose                             |
+| Tool / Library     | Purpose                              |
 |--------------------|--------------------------------------|
 | Python             | Main programming language            |
 | Pandas             | Data analysis & cleaning             |

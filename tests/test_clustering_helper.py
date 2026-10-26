@@ -165,3 +165,32 @@ def test_fit_kmeans_with_varying_cluster_counts():
         assert model.cluster_centers_.shape == (k, 2)
         assert inertia > 0
         assert -1.0 <= sil <= 1.0
+
+
+def test_load_dataset_latin1_encoding():
+    content = "Name,Amount\nCafé,100\nNaïve,200\n".encode("latin1")
+    stream = io.BytesIO(content)
+    df, err = load_dataset(stream)
+    assert err is None
+    assert len(df) == 2
+
+
+def test_prepare_feature_matrix_string_numbers():
+    df = pd.DataFrame({
+        'A': ['10', '20.5', 'not_a_num', '40'],
+        'B': [1, 2, 3, 4]
+    })
+    X_clean, valid_mask, err = prepare_feature_matrix(df, ['A', 'B'])
+    assert err is None
+    assert len(X_clean) == 3
+    assert valid_mask.sum() == 3
+
+
+def test_silhouette_safety_on_identical_points():
+    df = pd.DataFrame({
+        'A': [5.0, 5.0, 5.0, 5.0],
+        'B': [10.0, 10.0, 10.0, 10.0]
+    })
+    # Fitting K-means on identical points shouldn't crash
+    model, labels, sil, inertia = fit_kmeans_model(df, n_clusters=2, random_state=0)
+    assert sil is None or isinstance(sil, float)
